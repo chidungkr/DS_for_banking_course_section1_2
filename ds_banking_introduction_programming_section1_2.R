@@ -215,6 +215,7 @@ sapply(data_list, names)
 # Chuyển hóa về Data Frame quen thuộc: 
 
 library(tidyverse)
+library(magrittr)
 data_df <- do.call("bind_rows", data_list)
 
 
@@ -247,7 +248,7 @@ df_postgres <- dbGetQuery(con, "SELECT * from tbl_points")
 dbDisconnect(con)
 
 # Inspect our data: 
-library(magrittr)
+
 df_postgres %>% head()
 df_postgres %>% dim()
 df_postgres %>% names()
@@ -475,11 +476,8 @@ kurtosi(x) # A psych's function.
 #-----------------------------
 #  Case 1: Dữ liệu của Quỳnh
 #-----------------------------
-library(magrittr)
-library(tidyverse)
 
 data_df %>% glimpse()
-
 
 # Viết hàm lấy ra thông tin về loại giao dịch: 
 id <- data_df$ID[1:10]
@@ -495,6 +493,15 @@ ngoai_te_giao_dich <- function(s) {
     str_sub(start = 16, end = 18)
 }
 
+# Tốt hơn: 
+
+ngoai_te_giao_dich <- function(s) {
+  s %>% 
+    str_sub(start = 16, end = 18) %>% 
+    return()
+}
+
+
 # Test hàm: 
 ngoai_te_giao_dich(id)
 
@@ -507,6 +514,7 @@ data_df %<>% mutate(loai_tien = ngoai_te_giao_dich(ID))
 #  - Năm cùa giao dịch
 #  - Số tài khoản của giao dịch. 
 
+
 # Thách thức 1: Viết hàm tạo ra cột biến có bản chất thời gian 
 # và hình ảnh hóa số lượng giao dịch theo thời gian. 
 
@@ -518,6 +526,112 @@ id %>% str_replace_all("A|B", "")
 
 id %>% str_replace_all("[A-Z]", "")
 id %>% str_replace_all("[^0-9]", "")
+
+data_df$TENCN %>% str_detect("PGD") %>% sum()
+data_df %>% nrow()
+
+# Hàm lấy ra năm (phương án 1): 
+
+nam_giao_dich <- function(x) {
+  x %>% 
+    str_sub(20, 23) %>% 
+    return()
+}
+
+id %>% nam_giao_dich()
+
+# Hàm lấy ra tháng giao dịch: 
+
+thang_giao_dich <- function(x) {
+  x %>% 
+    str_sub(24, 25) %>% 
+    return()
+}
+
+id %>% thang_giao_dich()
+
+# Hàm lấy ra ngày giao dịch 
+ngay_giao_dich <- function(x) {
+  x %>% 
+    str_sub(26, 27) %>% 
+    return()
+}
+
+id %>% ngay_giao_dich()
+
+# Áp dụng hàm: 
+data_df %<>% mutate(nam = nam_giao_dich(ID), 
+                    thang = thang_giao_dich(ID), 
+                    ngay = ngay_giao_dich(ID))
+
+# Viết ra hàm tạo biến thời gian thực: 
+
+real_time <- function(x) {
+  x %>% 
+    str_sub(20, 27) %>% 
+    ymd() %>% 
+    return()
+}
+
+# Áp dụng hàm: 
+data_df %<>% mutate(time_ymd = real_time(ID))
+
+data_df$time_ymd %>% range()
+
+data_df %>% 
+  group_by(time_ymd) %>% 
+  count() %>% 
+  ggplot(aes(time_ymd, n)) + 
+  geom_line() + 
+  geom_point(color = "red")
+
+# Viết hàm tạo weekday: 
+
+w_day <- function(x) {
+  x %>% 
+    lubridate::wday(abbr = TRUE, label = TRUE) %>% 
+    return()
+  
+}
+
+# Sử dụng hàm: 
+
+data_df %<>% mutate(w_d = w_day(time_ymd))
+
+data_df %>% 
+  group_by(w_d) %>% 
+  count() %>% 
+  ggplot(aes(w_d, n)) + 
+  geom_col()
+
+# Viết hàm lấy ra thông tin về người phụ trách giao dịch: 
+tran_head <- function(x) {
+  ELSE <- TRUE
+  case_when(x %>% str_detect("PGD") ~ "Vice President", 
+            ELSE ~ "Staff")
+}
+
+# Áp dụng hàm: 
+
+data_df %<>% 
+  mutate(vice_presi = tran_head(TENCN))
+
+data_df %>% 
+  group_by(vice_presi) %>% 
+  count() %>% 
+  ggplot(aes(vice_presi, n)) + 
+  geom_col()
+
+# (Chỉ cho học viên hiểu về outliers và vai trò của phân tích hình ảnh): 
+data_df %>% 
+  ggplot(aes(vice_presi, PS.CO)) + 
+  geom_boxplot() + 
+  facet_wrap(~ vice_presi, scales = "free")
+
+data_df %>% 
+  na.omit() %>% 
+  group_by(vice_presi) %>% 
+  summarise_each(funs(mean, median, min, max, sd), PS.CO)
 
 #--------------------------------------------
 #   Case 1: Porn Data (trình bày tại lớp)
